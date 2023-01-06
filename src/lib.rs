@@ -30,6 +30,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query::total_bid(deps, addr)?)
         }
         QueryMsg::HighestBid {} => to_binary(&query::highest_bid(deps)?),
+        QueryMsg::Winner {} => to_binary(&query::winner(deps)?),
     }
 }
 
@@ -42,5 +43,6 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecMsg::Bid {} => execute::bid(deps, env, info),
+        ExecMsg::Close {} => execute::close(deps, env, info),
     }
 }

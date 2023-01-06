@@ -25,6 +25,7 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
             owner,
             commission: Decimal::percent(COMMISSION_PERCENT),
             highest_bid: None,
+            winner: None,
         },
     )?;
 
@@ -83,13 +84,45 @@ pub mod execute {
 
         Ok(res)
     }
+
+    pub fn close(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+        let mut state = STATE.load(deps.storage)?;
+
+        if state.owner != info.sender {
+            return Err(ContractError::Unauthorized);
+        }
+
+        let mut res = Response::new();
+
+        if let Some(winner) = state.highest_bid.clone() {
+            state.winner = Some(winner.addr);
+            STATE.save(deps.storage, &state)?;
+
+            let msg = BankMsg::Send {
+                to_address: state.owner.to_string(),
+                amount: vec![Coin {
+                    amount: winner.amount,
+                    denom: DENOMINATION.to_string(),
+                }],
+            };
+            res = res
+                .add_message(msg)
+                .add_attribute("winning_bid", winner.amount);
+        }
+
+        res = res
+            .add_attribute("action", "close")
+            .add_attribute("sender", info.sender.as_str());
+
+        Ok(res)
+    }
 }
 
 pub mod query {
     use cosmwasm_std::{Addr, Deps, StdResult};
 
     use crate::{
-        msg::{HighestBidResponse, TotalBidResponse},
+        msg::{HighestBidResponse, TotalBidResponse, WinnerResponse},
         state::{BIDS, STATE},
     };
 
@@ -102,6 +135,13 @@ pub mod query {
         let state = STATE.load(deps.storage)?;
         Ok(HighestBidResponse {
             bid: state.highest_bid,
+        })
+    }
+
+    pub fn winner(deps: Deps) -> StdResult<WinnerResponse> {
+        let state = STATE.load(deps.storage)?;
+        Ok(WinnerResponse {
+            winner: state.winner,
         })
     }
 }

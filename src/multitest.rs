@@ -4,7 +4,9 @@ use cw_multi_test::{App, ContractWrapper, Executor};
 use crate::{
     error::ContractError,
     execute, instantiate,
-    msg::{ExecMsg, HighestBidResponse, InstantiateMsg, QueryMsg, TotalBidResponse},
+    msg::{
+        ExecMsg, HighestBidResponse, InstantiateMsg, QueryMsg, TotalBidResponse, WinnerResponse,
+    },
     query,
 };
 
@@ -59,6 +61,19 @@ impl BiddingContract {
         Ok(())
     }
 
+    #[track_caller]
+    pub fn close<'a>(&self, app: &mut App, sender: &Addr) -> Result<(), ContractError> {
+        app.execute_contract(
+            sender.clone(),
+            self.addr().clone(),
+            &ExecMsg::Close {},
+            &vec![],
+        )
+        .map_err(|err| err.downcast::<ContractError>().unwrap())?;
+
+        Ok(())
+    }
+
     pub fn query_total_bid(&self, app: &App, addr: &Addr) -> StdResult<TotalBidResponse> {
         app.wrap().query_wasm_smart(
             self.addr(),
@@ -71,5 +86,10 @@ impl BiddingContract {
     pub fn query_highest_bid(&self, app: &App) -> StdResult<HighestBidResponse> {
         app.wrap()
             .query_wasm_smart(self.addr(), &QueryMsg::HighestBid {})
+    }
+
+    pub fn query_winner(&self, app: &App) -> StdResult<WinnerResponse> {
+        app.wrap()
+            .query_wasm_smart(self.addr(), &QueryMsg::Winner {})
     }
 }

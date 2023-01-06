@@ -14,6 +14,7 @@ pub struct State {
     pub owner: Addr,
     pub commission: Decimal,
     pub highest_bid: Option<AddrAmount>,
+    pub winner: Option<Addr>,
 }
 
 pub const STATE: Item<State> = Item::new("state");

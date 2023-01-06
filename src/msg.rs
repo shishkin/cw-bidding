@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Uint128};
 
 use crate::state::AddrAmount;
 
@@ -16,6 +16,9 @@ pub enum QueryMsg {
 
     #[returns(HighestBidResponse)]
     HighestBid {},
+
+    #[returns(WinnerResponse)]
+    Winner {},
 }
 
 #[cw_serde]
@@ -29,6 +32,12 @@ pub struct HighestBidResponse {
 }
 
 #[cw_serde]
+pub struct WinnerResponse {
+    pub winner: Option<Addr>,
+}
+
+#[cw_serde]
 pub enum ExecMsg {
     Bid {},
+    Close {},
 }

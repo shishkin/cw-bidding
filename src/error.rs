@@ -8,4 +8,7 @@ pub enum ContractError {
 
     #[error("Bid must be larger than {min}")]
     InsufficientBid { min: Uint128 },
+
+    #[error("Only owner can close bids")]
+    Unauthorized,
 }

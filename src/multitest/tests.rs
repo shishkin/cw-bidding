@@ -124,3 +124,44 @@ fn multiple_bidders() {
         }
     );
 }
+
+#[test]
+fn close_bids() {
+    let owner = Addr::unchecked("owner");
+    let alex = Addr::unchecked("alex");
+    let ann = Addr::unchecked("ann");
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &alex, coins(100, DENOMINATION))
+            .unwrap();
+        router
+            .bank
+            .init_balance(storage, &ann, coins(100, DENOMINATION))
+            .unwrap();
+    });
+    let code_id = BiddingContract::store_code(&mut app);
+
+    let contract =
+        BiddingContract::instantiate(&mut app, code_id, &owner, "Bidding contract", None).unwrap();
+
+    let resp = contract.query_winner(&app).unwrap();
+    assert_eq!(resp.winner, None);
+
+    let err = contract.close(&mut app, &alex).unwrap_err();
+    assert_eq!(err, ContractError::Unauthorized);
+
+    contract
+        .bid(&mut app, &alex, &coins(10, DENOMINATION))
+        .unwrap();
+
+    contract
+        .bid(&mut app, &ann, &coins(20, DENOMINATION))
+        .unwrap();
+
+    contract.close(&mut app, &owner).unwrap();
+
+    let resp = contract.query_winner(&app).unwrap();
+    assert_eq!(resp.winner, Some(ann.clone()));
+}
