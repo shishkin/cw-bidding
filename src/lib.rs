@@ -1,3 +1,4 @@
+use contract::execute::bid;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -33,5 +34,7 @@ pub fn execute(
     _info: MessageInfo,
     msg: ExecMsg,
 ) -> Result<Response, ContractError> {
-    match msg {}
+    match msg {
+        ExecMsg::Bid {} => bid(_deps, _env, _info).map_err(ContractError::from),
+    }
 }

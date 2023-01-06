@@ -1,4 +1,4 @@
-use cosmwasm_std::{DepsMut, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Decimal, DepsMut, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 use crate::{
@@ -8,6 +8,8 @@ use crate::{
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const COMMISSION_PERCENT: u64 = 10;
+pub const DENOMINATION: &str = "ATOM";
 
 pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -17,7 +19,50 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
         None => info.sender,
     };
 
-    STATE.save(deps.storage, &State { owner })?;
+    STATE.save(
+        deps.storage,
+        &State {
+            owner,
+            commission: Decimal::percent(COMMISSION_PERCENT),
+        },
+    )?;
 
     Ok(Response::new())
+}
+
+pub mod execute {
+    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult};
+
+    use crate::state::STATE;
+
+    use super::DENOMINATION;
+
+    pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> StdResult<Response> {
+        let state = STATE.load(deps.storage)?;
+
+        let funds = info
+            .funds
+            .iter()
+            .find(|f| f.denom == DENOMINATION && !f.amount.is_zero())
+            .unwrap();
+
+        let fee = funds.amount * state.commission;
+
+        let msg = BankMsg::Send {
+            to_address: state.owner.to_string(),
+            amount: vec![Coin {
+                amount: fee,
+                denom: DENOMINATION.to_string(),
+            }],
+        };
+
+        STATE.save(deps.storage, &state)?;
+
+        let res = Response::new()
+            .add_message(msg)
+            .add_attribute("action", "bid")
+            .add_attribute("sender", info.sender.as_str());
+
+        Ok(res)
+    }
 }

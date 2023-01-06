@@ -10,4 +10,6 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {}
 
 #[cw_serde]
-pub enum ExecMsg {}
+pub enum ExecMsg {
+    Bid {},
+}
