@@ -24,6 +24,7 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
         &State {
             owner,
             commission: Decimal::percent(COMMISSION_PERCENT),
+            highest_bid: None,
         },
     )?;
 
@@ -31,16 +32,17 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
 }
 
 pub mod execute {
-    use cosmwasm_std::{
-        BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
-    };
+    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, Uint128};
 
-    use crate::state::{BIDS, STATE};
+    use crate::{
+        error::ContractError,
+        state::{AddrAmount, BIDS, STATE},
+    };
 
     use super::DENOMINATION;
 
-    pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> StdResult<Response> {
-        let state = STATE.load(deps.storage)?;
+    pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+        let mut state = STATE.load(deps.storage)?;
 
         let funds = info
             .funds
@@ -50,10 +52,21 @@ pub mod execute {
 
         let fee = (funds.amount * state.commission).max(Uint128::one());
         let bid_increment = funds.amount - fee;
+        let previous_bid = BIDS.may_load(deps.storage, info.sender.clone())?;
+        let current_bid = previous_bid.unwrap_or_default() + bid_increment;
+        let highest_bid = state.highest_bid.map(|b| b.amount).unwrap_or_default();
 
-        BIDS.update(deps.storage, info.sender.clone(), |bid| {
-            Ok::<_, StdError>(bid.unwrap_or(Uint128::zero()) + bid_increment)
-        })?;
+        if current_bid <= highest_bid {
+            return Err(ContractError::InsufficientBid { min: highest_bid });
+        }
+
+        state.highest_bid = Some(AddrAmount {
+            addr: info.sender.clone(),
+            amount: current_bid,
+        });
+        STATE.save(deps.storage, &state)?;
+
+        BIDS.save(deps.storage, info.sender.clone(), &current_bid)?;
 
         let msg = BankMsg::Send {
             to_address: state.owner.to_string(),
@@ -62,8 +75,6 @@ pub mod execute {
                 denom: DENOMINATION.to_string(),
             }],
         };
-
-        STATE.save(deps.storage, &state)?;
 
         let res = Response::new()
             .add_message(msg)
@@ -77,10 +88,20 @@ pub mod execute {
 pub mod query {
     use cosmwasm_std::{Addr, Deps, StdResult};
 
-    use crate::{msg::TotalBidResponse, state::BIDS};
+    use crate::{
+        msg::{HighestBidResponse, TotalBidResponse},
+        state::{BIDS, STATE},
+    };
 
     pub fn total_bid(deps: Deps, addr: Addr) -> StdResult<TotalBidResponse> {
         let bid = BIDS.may_load(deps.storage, addr)?;
         Ok(TotalBidResponse { amount: bid })
+    }
+
+    pub fn highest_bid(deps: Deps) -> StdResult<HighestBidResponse> {
+        let state = STATE.load(deps.storage)?;
+        Ok(HighestBidResponse {
+            bid: state.highest_bid,
+        })
     }
 }

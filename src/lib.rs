@@ -23,23 +23,24 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::TotalBid { addr } => {
-            let addr = _deps.api.addr_validate(&addr)?;
-            to_binary(&query::total_bid(_deps, addr)?)
+            let addr = deps.api.addr_validate(&addr)?;
+            to_binary(&query::total_bid(deps, addr)?)
         }
+        QueryMsg::HighestBid {} => to_binary(&query::highest_bid(deps)?),
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    _deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
     msg: ExecMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecMsg::Bid {} => execute::bid(_deps, _env, _info).map_err(ContractError::from),
+        ExecMsg::Bid {} => execute::bid(deps, env, info),
     }
 }

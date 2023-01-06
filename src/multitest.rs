@@ -4,7 +4,7 @@ use cw_multi_test::{App, ContractWrapper, Executor};
 use crate::{
     error::ContractError,
     execute, instantiate,
-    msg::{ExecMsg, InstantiateMsg, QueryMsg, TotalBidResponse},
+    msg::{ExecMsg, HighestBidResponse, InstantiateMsg, QueryMsg, TotalBidResponse},
     query,
 };
 
@@ -66,5 +66,10 @@ impl BiddingContract {
                 addr: addr.to_string(),
             },
         )
+    }
+
+    pub fn query_highest_bid(&self, app: &App) -> StdResult<HighestBidResponse> {
+        app.wrap()
+            .query_wasm_smart(self.addr(), &QueryMsg::HighestBid {})
     }
 }
