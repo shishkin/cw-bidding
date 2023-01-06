@@ -11,4 +11,10 @@ pub enum ContractError {
 
     #[error("Only owner can close bids")]
     Unauthorized,
+
+    #[error("Cannot retract while bids are still open")]
+    BidsStillOpen,
+
+    #[error("Winning bidder cannot retract")]
+    WinnerCannotRetract,
 }

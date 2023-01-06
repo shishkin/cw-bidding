@@ -1,3 +1,5 @@
+use std::vec;
+
 use cosmwasm_std::{coins, Addr, Uint128};
 use cw_multi_test::App;
 
@@ -164,4 +166,66 @@ fn close_bids() {
 
     let resp = contract.query_winner(&app).unwrap();
     assert_eq!(resp.winner, Some(ann.clone()));
+}
+
+#[test]
+fn retract() {
+    let owner = Addr::unchecked("owner");
+    let alex = Addr::unchecked("alex");
+    let ann = Addr::unchecked("ann");
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &alex, coins(10, DENOMINATION))
+            .unwrap();
+        router
+            .bank
+            .init_balance(storage, &ann, coins(20, DENOMINATION))
+            .unwrap();
+    });
+    let code_id = BiddingContract::store_code(&mut app);
+
+    let contract =
+        BiddingContract::instantiate(&mut app, code_id, &owner, "Bidding contract", None).unwrap();
+
+    let err = contract.retract(&mut app, &alex, None).unwrap_err();
+    assert_eq!(err, ContractError::BidsStillOpen);
+
+    contract
+        .bid(&mut app, &alex, &coins(10, DENOMINATION))
+        .unwrap();
+
+    contract
+        .bid(&mut app, &ann, &coins(20, DENOMINATION))
+        .unwrap();
+
+    contract.close(&mut app, &owner).unwrap();
+
+    let err = contract.retract(&mut app, &ann, None).unwrap_err();
+    assert_eq!(err, ContractError::WinnerCannotRetract);
+
+    contract
+        .retract(&mut app, &alex, Some(ann.clone()))
+        .unwrap();
+
+    assert_eq!(
+        app.wrap().query_all_balances(owner).unwrap(),
+        coins(21, DENOMINATION)
+    );
+    assert_eq!(
+        app.wrap().query_all_balances(contract.addr()).unwrap(),
+        vec![]
+    );
+    assert_eq!(app.wrap().query_all_balances(alex.clone()).unwrap(), vec![]);
+    assert_eq!(
+        app.wrap().query_all_balances(ann.clone()).unwrap(),
+        coins(9, DENOMINATION)
+    );
+
+    let resp = contract.query_total_bid(&app, &alex).unwrap();
+    assert_eq!(resp.amount, None);
+
+    let resp = contract.query_total_bid(&app, &ann).unwrap();
+    assert_eq!(resp.amount, None);
 }

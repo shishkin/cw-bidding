@@ -33,7 +33,7 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
 }
 
 pub mod execute {
-    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, Uint128};
+    use cosmwasm_std::{Addr, BankMsg, Coin, DepsMut, Env, MessageInfo, Response, Uint128};
 
     use crate::{
         error::ContractError,
@@ -95,7 +95,7 @@ pub mod execute {
         let mut res = Response::new();
 
         if let Some(winner) = state.highest_bid.clone() {
-            state.winner = Some(winner.addr);
+            state.winner = Some(winner.addr.clone());
             STATE.save(deps.storage, &state)?;
 
             let msg = BankMsg::Send {
@@ -108,10 +108,53 @@ pub mod execute {
             res = res
                 .add_message(msg)
                 .add_attribute("winning_bid", winner.amount);
+
+            BIDS.remove(deps.storage, winner.addr.clone());
         }
 
         res = res
             .add_attribute("action", "close")
+            .add_attribute("sender", info.sender.as_str());
+
+        Ok(res)
+    }
+
+    pub fn retract(
+        deps: DepsMut,
+        _env: Env,
+        info: MessageInfo,
+        receiver: Addr,
+    ) -> Result<Response, ContractError> {
+        let state = STATE.load(deps.storage)?;
+        let mut res = Response::new();
+
+        if let Some(winner) = state.winner {
+            if winner == info.sender {
+                return Err(ContractError::WinnerCannotRetract);
+            }
+
+            if let Some(amount) = BIDS.may_load(deps.storage, info.sender.clone())? {
+                if !amount.is_zero() {
+                    let msg = BankMsg::Send {
+                        to_address: receiver.to_string(),
+                        amount: vec![Coin {
+                            amount,
+                            denom: DENOMINATION.to_string(),
+                        }],
+                    };
+                    res = res
+                        .add_message(msg)
+                        .add_attribute("retracted_amount", amount)
+                        .add_attribute("retracted_to", receiver);
+                    BIDS.remove(deps.storage, info.sender.clone());
+                }
+            }
+        } else {
+            return Err(ContractError::BidsStillOpen);
+        }
+
+        res = res
+            .add_attribute("action", "retract")
             .add_attribute("sender", info.sender.as_str());
 
         Ok(res)

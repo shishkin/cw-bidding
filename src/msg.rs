@@ -40,4 +40,5 @@ pub struct WinnerResponse {
 pub enum ExecMsg {
     Bid {},
     Close {},
+    Retract { receiver: Option<String> },
 }

@@ -44,5 +44,12 @@ pub fn execute(
     match msg {
         ExecMsg::Bid {} => execute::bid(deps, env, info),
         ExecMsg::Close {} => execute::close(deps, env, info),
+        ExecMsg::Retract { receiver } => {
+            let receiver = match receiver {
+                None => info.sender.clone(),
+                Some(r) => deps.api.addr_validate(&r)?,
+            };
+            execute::retract(deps, env, info, receiver)
+        }
     }
 }
