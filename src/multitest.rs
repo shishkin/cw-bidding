@@ -24,11 +24,15 @@ impl BiddingContract {
         code_id: u64,
         sender: &Addr,
         label: &str,
+        owner: impl Into<Option<&'a Addr>>,
     ) -> StdResult<BiddingContract> {
+        let owner = owner.into();
         app.instantiate_contract(
             code_id,
             sender.clone(),
-            &InstantiateMsg {},
+            &InstantiateMsg {
+                owner: owner.map(Addr::to_string),
+            },
             &[],
             label,
             None,
