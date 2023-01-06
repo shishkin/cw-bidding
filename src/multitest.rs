@@ -4,7 +4,7 @@ use cw_multi_test::{App, ContractWrapper, Executor};
 use crate::{
     error::ContractError,
     execute, instantiate,
-    msg::{ExecMsg, InstantiateMsg},
+    msg::{ExecMsg, InstantiateMsg, QueryMsg, TotalBidResponse},
     query,
 };
 
@@ -53,9 +53,18 @@ impl BiddingContract {
         sender: &Addr,
         funds: &[Coin],
     ) -> Result<(), ContractError> {
-        app.execute_contract(sender.clone(), self.0.clone(), &ExecMsg::Bid {}, funds)
+        app.execute_contract(sender.clone(), self.addr().clone(), &ExecMsg::Bid {}, funds)
             .map_err(|err| err.downcast::<ContractError>().unwrap())?;
 
         Ok(())
+    }
+
+    pub fn query_total_bid(&self, app: &App, addr: &Addr) -> StdResult<TotalBidResponse> {
+        app.wrap().query_wasm_smart(
+            self.addr(),
+            &QueryMsg::TotalBid {
+                addr: addr.to_string(),
+            },
+        )
     }
 }

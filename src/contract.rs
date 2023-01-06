@@ -31,9 +31,11 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
 }
 
 pub mod execute {
-    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult};
+    use cosmwasm_std::{
+        BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
+    };
 
-    use crate::state::STATE;
+    use crate::state::{BIDS, STATE};
 
     use super::DENOMINATION;
 
@@ -46,7 +48,12 @@ pub mod execute {
             .find(|f| f.denom == DENOMINATION && !f.amount.is_zero())
             .unwrap();
 
-        let fee = funds.amount * state.commission;
+        let fee = (funds.amount * state.commission).max(Uint128::one());
+        let bid_increment = funds.amount - fee;
+
+        BIDS.update(deps.storage, info.sender.clone(), |bid| {
+            Ok::<_, StdError>(bid.unwrap_or(Uint128::zero()) + bid_increment)
+        })?;
 
         let msg = BankMsg::Send {
             to_address: state.owner.to_string(),
@@ -64,5 +71,16 @@ pub mod execute {
             .add_attribute("sender", info.sender.as_str());
 
         Ok(res)
+    }
+}
+
+pub mod query {
+    use cosmwasm_std::{Addr, Deps, StdResult};
+
+    use crate::{msg::TotalBidResponse, state::BIDS};
+
+    pub fn total_bid(deps: Deps, addr: Addr) -> StdResult<TotalBidResponse> {
+        let bid = BIDS.may_load(deps.storage, addr)?;
+        Ok(TotalBidResponse { amount: bid })
     }
 }
